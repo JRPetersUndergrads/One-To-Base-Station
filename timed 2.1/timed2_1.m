@@ -5,7 +5,7 @@ Ngrid = [];
 list = [];
 
 BaseAnimate = VideoWriter('BaseAnimate.avi');
-total.FrameRate = 10;
+BaseAnimate.FrameRate = 1;
 open(BaseAnimate);
 AgentsAnimate = VideoWriter('AgentsAnimate.avi');
 AgentsAnimate.FrameRate = 10;
@@ -97,7 +97,7 @@ CompleteMap = CompleteMap.CreateEvenDensity;
 
 
 %% Create Base Station
-Base = BaseStation(CompleteMap,DeltaComm,DeltaHold,distMethod);
+Base = BaseStation(CompleteMap,DeltaComm,DeltaHold,distMethod,BaseAnimate);
 Base = Base.InitializeAgents(NRegions,AgentWeights,mpdc);
 %% Create Agents
 Agents = {};
@@ -155,6 +155,6 @@ for t = 1:dt:time
     end
     hold off
     drawnow
-    BaseAnimate = getframe(figure(BaseFig));
-    AgentsAnimate = getframe(figure(AgentFig));
+    Agentframe = getframe(figure(AgentFig));
+    writeVideo(AgentsAnimate,Agentframe);
 end

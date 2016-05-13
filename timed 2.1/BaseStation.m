@@ -13,21 +13,24 @@ classdef BaseStation
         mpdc;
         distMethod;
         DistMatrix;
+        BaseVid;
     end
     methods
         %Constructor
-        function obj = BaseStation(Map,DeltaComm,DeltaHold,distMethod)
+        function obj = BaseStation(Map,DeltaComm,DeltaHold,distMethod,BaseVid)
             p = inputParser;
             p.KeepUnmatched = 1;
             addRequired(p,'Map');
             addRequired(p,'DeltaComm');
             addRequired(p,'DeltaHold');
             addRequired(p,'distMethod');
-            parse(p,Map,DeltaComm,DeltaHold,distMethod)
+            addRequired(p,'BaseVid');
+            parse(p,Map,DeltaComm,DeltaHold,distMethod,BaseVid)
             obj.DeltaComm = p.Results.DeltaComm;
             obj.DeltaHold = p.Results.DeltaHold;
             obj.Map = p.Results.Map;
             obj.distMethod = p.Results.distMethod;
+            obj.BaseVid = BaseVid;
             %create distance matrix for whole graph
             h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
             index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
@@ -94,7 +97,7 @@ classdef BaseStation
                 for k = thisCoveringNotCenter
                     count = count+1;
                     %clc
-                    %disp([num2str(count),' out of ' ,num2str(length(thisCoveringNotCenter))]);
+                    disp([num2str(count),' out of ' ,num2str(length(thisCoveringNotCenter))]);
                     [compareCoverings compareCost] = obj.FindRegions(Agent,k);
                     %if this k gives us better cost, use k
                     if compareCost<lowCost
@@ -158,9 +161,9 @@ classdef BaseStation
                     costCompare = min(costCompare,thisCenterCost);
                 end
                 %calculate cost for this agent
-                if obj.DistType(NewCoverings{i},obj.Centers(i)) %if we can use dist Matrix
+                if obj.DistType(NewCoverings{Agent},k) %if we can use dist Matrix
                     %disp('check')
-                    thisCenterCost = obj.DistMatrix(k,adjacent)/obj.AgentWeights(i);
+                    thisCenterCost = obj.DistMatrix(k,adjacent)/obj.AgentWeights(Agent);
                 else
                     %disp('no check')
                     notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
@@ -182,7 +185,7 @@ classdef BaseStation
             tempCenters = obj.Centers;
             tempCenters(Agent) = k;
             Cost = obj.Hmin(NewCoverings,tempCenters);
-%             %% Plot Calculations
+% %             %% Plot Calculations
 %                         tempBase = obj;
 %                         tempBase.Coverings = NewCoverings;
 %                         tempBase.Centers(Agent) = k;
@@ -283,6 +286,8 @@ classdef BaseStation
             alpha(transparancy)
             hold off
             drawnow
+            BaseFrame = getframe(figure(FigNum));
+            writeVideo(obj.BaseVid,BaseFrame);
         end
         
         function useManDist = DistType(obj, tempindices,k)
