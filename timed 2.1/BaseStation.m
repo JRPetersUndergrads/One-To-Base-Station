@@ -224,6 +224,9 @@ classdef BaseStation
                 %have to travel to get back to new region. Convert to time
                 MaxRelocateTime = MaxRelocateDist/obj.AgentWeights(i);
                 timeTillUpdate = obj.DeltaComm + obj.DeltaHold - obj.TimeSinceUpdates(i);
+                if isempty(removedRegion)
+                    timeTillUpdate = 0;
+                end
                 timer = max(timer, MaxRelocateTime + timeTillUpdate);
             end
             
