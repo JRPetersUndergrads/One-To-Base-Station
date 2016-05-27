@@ -134,6 +134,8 @@ classdef Agent
             %             Ycount = floor((agentspos(2)-Lmin(2))/dygrid)+1;
             %             positionIndex = Xcount*Ngridy+Ycount;
             positionIndex = obj.posIndex;
+            
+            
             if strcmp(obj.status,'return home')
                 disp('heading home')
                 %if agent is already heading home, continue using
@@ -170,6 +172,10 @@ classdef Agent
                     obj=obj.DeletePoints();
                 end
             else
+                if ~ismember(obj.posIndex,obj.Map.PointsIndices)
+                    agent
+                    error('not in region')
+                end
                 obj = obj.DeletePoints();
                 
                 %run regular smc
@@ -188,9 +194,11 @@ classdef Agent
                     lastPosition = tempPosition;
                     tempIndex = obj.posIndex;
                     lastIndex = tempIndex;
+                    tempdt = dt;
                     %loop through every crossedboundary to find last index that is
                     %still in boundary
-                    while ismember(tempIndex,obj.Map.PointsIndices) && tempPosition (1) >= Lmin(1) && tempPosition(1) <= Lmax(1) && tempPosition (2) >=Lmin(2) && tempPosition (2) <= Lmax(2)
+                    while ismember(tempIndex,obj.Map.PointsIndices) && tempdt > 0 && tempPosition (1) > Lmin(1) && tempPosition(1) < Lmax(1) && tempPosition (2) >Lmin(2) && tempPosition (2) < Lmax(2)
+                        dt = tempdt;
                         lastPosition = tempPosition;
                         lastIndex = tempIndex;
                         timetobound = (boundxy - tempPosition)./vector;
@@ -201,6 +209,9 @@ classdef Agent
                         tempPosition = tempPosition+timetobound*vector;
                         Nmove = [Ngridy 1];
                         tempIndex = obj.findIndex(tempPosition);
+                        travelDist = tempPosition - lastPosition;
+                        travelDist = sqrt(travelDist(1)^2 + travelDist(2)^2);
+                        tempdt = dt - travelDist / obj.uavmeanspeed;
                     end
                     %now lastPosition gives us last index before leaving and the point
                     %before it leaves
@@ -209,15 +220,26 @@ classdef Agent
                     newpositionIndex = lastIndex;
                     obj.pos=[obj.pos; newPosition];
                     obj.posIndex = newpositionIndex;
-                    travelDist = newPosition - agentspos;
-                    travelDist = sqrt(travelDist(1)^2 + travelDist(2)^2);
-                    travelTime = travelDist / obj.uavmeanspeed;
+                    if dt<0
+                        newPosition
+                        agentspos
+                        obj.pos
+                        error('negative dt')
+                    end
                     
-                    
-                    direction = obj.Map.xy(ismember(obj.Map.PointsIndices,newpositionIndex),:)-newPosition;
-                    direction = direction./sqrt(direction(1)^2+direction(2)^2).*obj.uavmeanspeed;
-                    newPosition = newPosition + direction;
-                    obj.pos=[obj.pos; newPosition];
+                    %make home the center of that point and 'head home'
+                    obj.status = 'return home';
+                    obj.Directions = obj.Map.xy(ismember(obj.Map.PointsIndices,newpositionIndex),:)-newPosition;
+                    obj = obj.headhome(dt);
+                    if isempty(obj.Directions);
+                        obj.status = 'home';
+                        disp('reached home')
+                        obj.ID
+                        obj = obj.DeletePoints;
+                    end
+%                     direction = direction./sqrt(direction(1)^2+direction(2)^2).*obj.uavmeanspeed;
+%                     newPosition = newPosition + direction*travelTime;
+%                     obj.pos=[obj.pos; newPosition];
                     
                 else
                     % if new position is still in region, then use it
