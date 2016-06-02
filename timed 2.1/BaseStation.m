@@ -14,6 +14,8 @@ classdef BaseStation
         distMethod;
         DistMatrix;
         BaseVid;
+        HminCost;
+        ToUpdateOrNotToUpdate
     end
     methods
         %Constructor
@@ -82,13 +84,21 @@ classdef BaseStation
             obj.TimeSinceUpdates = obj.TimeSinceUpdates + dt;
         end
         
-        function obj = OneToBaseUpdate(obj,Agent,width,height,transparancy,BaseFig,dt)%,newtime,dt)
+        function [obj lowCost] = OneToBaseUpdate(obj,Agent,width,height,transparancy,BaseFig,dt)%,newtime,dt)
             %OneToBaseUpdate = Algorithm 2
-            
-            if obj.AgentTimers(Agent) <=0 %only update Agent if it doesn't have timer on it
+            if obj.ToUpdateOrNotToUpdate == 1
+                temp = obj.AgentTimers(Agent);
+            else
+                temp = 1;
+            end
+            if  temp <=0 %only update Agent if it doesn't have timer on it
                 %first calculate new region with current center
                 c = obj.Centers(Agent);
                 [NewCoverings lowCost] = obj.FindRegions(Agent,c);
+                if lowCost > obj.HminCost
+                    NewCoverings = obj.Coverings;
+                    lowCost = obj.HminCost;
+                end
                 %loop through and use all other points in covering as
                 %center
                 thisCoveringNotCenter = obj.Coverings{Agent};
@@ -97,7 +107,7 @@ classdef BaseStation
                 for k = thisCoveringNotCenter
                     count = count+1;
                     %clc
-                    disp([num2str(count),' out of ' ,num2str(length(thisCoveringNotCenter))]);
+                    %disp([num2str(count),' out of ' ,num2str(length(thisCoveringNotCenter))]);
                     [compareCoverings compareCost] = obj.FindRegions(Agent,k);
                     %if this k gives us better cost, use k
                     if compareCost<lowCost
@@ -111,6 +121,12 @@ classdef BaseStation
                 obj.PerceivedCoverings{Agent} = NewCoverings{Agent};
                 obj.Centers(Agent) = c;
                 obj.PlotBaseRegions(width,height,transparancy,BaseFig)
+                if lowCost > obj.HminCost
+                    error
+                end
+                obj.HminCost = lowCost;
+            else
+                lowCost = obj.HminCost;
             end
             
                 obj.TimeSinceUpdates(Agent) = 0;
@@ -209,6 +225,10 @@ classdef BaseStation
                 MaxRelocateDist = 0;
                 oldRegion = obj.PerceivedCoverings{i};
                 removedRegion = oldRegion(~ismember(oldRegion,NewCoverings{i}));
+                if obj.AgentTimers(i) > 0 && ~isempty(removedRegion)
+                    i
+                    error
+                end
                 %build Edges for this region
                 notThisRegion = ~ismember(obj.Map.PointsIndices,oldRegion);
                 tempEdges = obj.Map.Edges;
@@ -223,11 +243,11 @@ classdef BaseStation
                 %now MaxRelocateDist is the maximum distance this other agent will
                 %have to travel to get back to new region. Convert to time
                 MaxRelocateTime = MaxRelocateDist/obj.AgentWeights(i);
-                timeTillUpdate = obj.DeltaComm + obj.DeltaHold - obj.TimeSinceUpdates(i);
+                timeTillUpdate = obj.DeltaComm - obj.TimeSinceUpdates(i);
                 if isempty(removedRegion)
                     timeTillUpdate = 0;
                 end
-                timer = max(timer, MaxRelocateTime + timeTillUpdate);
+                timer = max(timer, MaxRelocateTime + timeTillUpdate + obj.DeltaHold);
             end
             
             %now find max time for this agent to go to new region
