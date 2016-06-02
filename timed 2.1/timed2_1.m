@@ -24,14 +24,14 @@ Domain.Dysize = OuterBoundaries(4);
 CommPercent = 1;
 NRegions = 4;
 %AgentWeights = [.25;.25;.25;.25];
-AgentWeights = ones(NRegions,1)*5;
+AgentWeights = ones(NRegions,1);
 DeltaHold = 0;
-DeltaComm = 5;
+DeltaComm = 10;
 
 mpdc = distinguishable_colors(NRegions);
 transparancy = 0.25;
 dt = 0.5;
-time = 1000;
+time = 10000;
 
 wmin=-5; wmax=5;
 K=10;
@@ -92,13 +92,14 @@ end
 density = zeros(length(x),1);
 CompleteMap = Map(x,y,density,edges);
 CompleteMap = CompleteMap.CreateEvenDensity;
-%CompleteMap = CompleteMap.AddGaussian([14 12], [600 0;0 600], [1 10]);
-% CompleteMap = CompleteMap.AddGaussian([60 60], [300 0;0 600], [1 1]);
+CompleteMap = CompleteMap.AddGaussian([14 12], [600 0;0 600], [1 10]);
+%CompleteMap = CompleteMap.AddGaussian([60 60], [300 0;0 600], [1 1]);
 
 
 %% Create Base Station
 Base = BaseStation(CompleteMap,DeltaComm,DeltaHold,distMethod,BaseAnimate);
 Base = Base.InitializeAgents(NRegions,AgentWeights,mpdc);
+Base.ToUpdateOrNotToUpdate = 1;
 %% Create Agents
 Agents = {};
 Coverage = SMC(Ck,nk,K,DSMCOn,vehiclemodeltype);
@@ -107,6 +108,19 @@ for i = 1:NRegions
     tempxy = Base.Map.xy(Base.Centers(i), :);
     Agents{i} = Agent(i,Base.Centers(i),CompleteMap, Base.Coverings{i},Coverage,Domain,Base.AgentWeights(i));
 end
+
+%% Record location density
+AgentLocations = zeros(1,length(NRegions));
+locationRecord = zeros(1,NGridx*NGridy);
+locationRecordNorm = locationRecord;
+for i = 1:NRegions
+    AgentLocations(i) = Agents{i}.posIndex;
+end
+locationRecord(AgentLocations) = locationRecord(AgentLocations)+1;
+locationRecordNorm = locationRecord/sum(locationRecord);
+AvePerDev = [];
+TimeCost= [];
+timeSinceNoChange=0;
 
 for t = 1:dt:time
     Base = Base.BaseTimeUpdate(dt);
@@ -134,9 +148,15 @@ for t = 1:dt:time
     list = [list AgentToUpdate];
     
     if ~isempty(AgentToUpdate)
-        Base = Base.OneToBaseUpdate(AgentToUpdate,width,height,transparancy,BaseFig,dt);
+        [Base TimeCost(end+1)] = Base.OneToBaseUpdate(AgentToUpdate,width,height,transparancy,BaseFig,dt);
         Agents{AgentToUpdate} = Agents{AgentToUpdate}.BaseUpdate(Base.Coverings{AgentToUpdate},Base.Centers(AgentToUpdate),Base.AgentTimers(AgentToUpdate)+dt,CompleteMap);
-        
+        disp(['Hmin' num2str(TimeCost(end))]);
+    end
+    
+    if sum(Base.AgentTimers)==0
+        timeSinceNoChange = timeSinceNoChange +1;
+    else
+        timeSinceNoChange = 0
     end
     
     disp(' ')
@@ -154,7 +174,21 @@ for t = 1:dt:time
         Agents{i}.plot(mpdc(i,:), transparancy);
     end
     hold off
+    
+    axis([Domain.Lmin(1) Domain.Lmax(1) Domain.Lmin(2) Domain.Lmax(2)])
     drawnow
     Agentframe = getframe(figure(AgentFig));
     writeVideo(AgentsAnimate,Agentframe);
+    
+    %% Density caculations
+    for i = 1:NRegions
+        AgentLocations(i) = Agents{i}.posIndex;
+    end
+    locationRecord(AgentLocations) = locationRecord(AgentLocations)+1;
+    locationRecordNorm = locationRecord/sum(locationRecord);
+    AvePerDev(end+1) = mean(abs(locationRecordNorm - CompleteMap.Densities)./CompleteMap.Densities);
+    disp(['deviation' num2str(AvePerDev(end))]);
+     if timeSinceNoChange > 2*DeltaComm
+         Base.ToUpdateOrNotToUpdate = 0;
+     end
 end
