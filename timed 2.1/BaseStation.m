@@ -162,7 +162,7 @@ classdef BaseStation
                 %loop through each agent to compare costs
                 costCompare = inf(1,length(adjacent));
                 for i = otherAgents
-                    if obj.DistType(NewCoverings{i},obj.Centers(i)) %if we can use dist Matrix
+                    if false %obj.DistType(NewCoverings{i},obj.Centers(i)) %if we can use dist Matrix
                         %disp('check')
                         thisCenterCost = obj.DistMatrix(obj.Centers(i),adjacent)/obj.AgentWeights(i);
                     else
@@ -177,7 +177,7 @@ classdef BaseStation
                     costCompare = min(costCompare,thisCenterCost);
                 end
                 %calculate cost for this agent
-                if obj.DistType(NewCoverings{Agent},k) %if we can use dist Matrix
+                if false %obj.DistType(NewCoverings{Agent},k) %if we can use dist Matrix
                     %disp('check')
                     thisCenterCost = obj.DistMatrix(k,adjacent)/obj.AgentWeights(Agent);
                 else
