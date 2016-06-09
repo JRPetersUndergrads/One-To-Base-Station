@@ -95,8 +95,6 @@ classdef BaseStation
                 %first calculate new region with current center
                 c = obj.Centers(Agent);
                 [NewCoverings lowCost] = obj.FindRegions(Agent,c);
-                NewCoverings{3}
-                NewCoverings{4}
                 if lowCost > obj.HminCost
 %                     NewCoverings = obj.Coverings;
 %                     lowCost = obj.HminCost;
