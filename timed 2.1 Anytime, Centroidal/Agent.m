@@ -378,8 +378,8 @@ classdef Agent
             end
             patch(patchesx,patchesy,color)
             alpha(transparancy)
-            plot(obj.pos(:,1),obj.pos(:,2),'color',color,'LineWidth',2)
-            plot(obj.pos(end,1),obj.pos(end,2),'color',color,'Marker', 'o')
+%             plot(obj.pos(:,1),obj.pos(:,2),'color',color,'LineWidth',2)
+%             plot(obj.pos(end,1),obj.pos(end,2),'color',color,'Marker', 'o')
         end
         
         function index = findIndex(obj,xy)

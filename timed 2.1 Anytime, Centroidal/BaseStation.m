@@ -61,7 +61,10 @@ classdef BaseStation
             obj.TimeSinceUpdates = zeros(NRegions,1);
             obj.AgentWeights = AgentWeights;
             obj.Coverings = cell(NRegions,1);
-            obj.Centers = randperm(max(obj.Map.PointsIndices),NRegions);
+            
+            s = RandStream('mt19937ar','Seed',29382);
+            obj.Centers = randperm(s,max(obj.Map.PointsIndices),NRegions);
+            
             %calculate initial coverings (voronoi)
             for i = 1:length(obj.Centers)
                 %distances(i,:) = graphshortestpath(sparse(obj.Map.Edges),obj.Centers(i),'Method',obj.distMethod)/obj.AgentWeights(i);
@@ -96,8 +99,7 @@ classdef BaseStation
                 c = obj.Centers(Agent);
                 [NewCoverings lowCost] = obj.FindRegions(Agent,c);
                 if lowCost > obj.HminCost
-                    NewCoverings = obj.Coverings;
-                    lowCost = obj.HminCost;
+                      error('Cost Level Rise')
                 end
                 %loop through and use all other points in covering as
                 %center
@@ -121,9 +123,7 @@ classdef BaseStation
                 obj.PerceivedCoverings{Agent} = NewCoverings{Agent};
                 obj.Centers(Agent) = c;
                 obj.PlotBaseRegions(width,height,transparancy,BaseFig)
-                if lowCost > obj.HminCost
-                    error
-                end
+
                 obj.HminCost = lowCost;
             else
                 lowCost = obj.HminCost;
@@ -162,33 +162,21 @@ classdef BaseStation
                 %loop through each agent to compare costs
                 costCompare = inf(1,length(adjacent));
                 for i = otherAgents
-                    if obj.DistType(NewCoverings{i},obj.Centers(i)) %if we can use dist Matrix
-                        %disp('check')
-                        thisCenterCost = obj.DistMatrix(obj.Centers(i),adjacent)/obj.AgentWeights(i);
-                    else
-                        %disp('no check')
-                        %build Edges for this region
-                        notThisRegion = ~ismember(obj.Map.PointsIndices,NewCoverings{i});
-                        tempEdges = obj.Map.Edges;
-                        tempEdges(notThisRegion,:) = 0; %remove edges not in subset
-                        tempEdges(:,notThisRegion) = 0;
-                        thisCenterCost = graphshortestpath(sparse(tempEdges),obj.Centers(i),adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
-                    end
-                    costCompare = min(costCompare,thisCenterCost);
-                end
-                %calculate cost for this agent
-                if obj.DistType(NewCoverings{Agent},k) %if we can use dist Matrix
-                    %disp('check')
-                    thisCenterCost = obj.DistMatrix(k,adjacent)/obj.AgentWeights(Agent);
-                else
-                    %disp('no check')
-                    notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
+                    %build Edges for this region
+                    notThisRegion = ~ismember(obj.Map.PointsIndices,NewCoverings{i});
                     tempEdges = obj.Map.Edges;
                     tempEdges(notThisRegion,:) = 0; %remove edges not in subset
                     tempEdges(:,notThisRegion) = 0;
-                    thisCenterCost = graphshortestpath(sparse(tempEdges),k,adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
-                    
+                    thisCenterCost = graphshortestpath(sparse(tempEdges),obj.Centers(i),adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
+                    costCompare = min(costCompare,thisCenterCost);
                 end
+                %calculate cost for this agent
+                notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
+                tempEdges = obj.Map.Edges;
+                tempEdges(notThisRegion,:) = 0; %remove edges not in subset
+                tempEdges(:,notThisRegion) = 0;
+                thisCenterCost = graphshortestpath(sparse(tempEdges),k,adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
+                
                 pPlusnew = adjacent(thisCenterCost<costCompare);
                 %now we have points that we can add. add below
                 NewCoverings{Agent} = sort([NewCoverings{Agent} pPlusnew]);
@@ -196,20 +184,29 @@ classdef BaseStation
                 for i = otherAgents
                     NewCoverings{i}(ismember(NewCoverings{i},pPlusnew)) = [];
                 end
+                %             %% Plot Calculations
+%                 tempBase = obj;
+%                 tempBase.Coverings = NewCoverings;
+%                 tempBase.Centers(Agent) = k;
+%                 transparancy = 0.25;
+%                 h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
+%                 index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
+%                 w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
+%                 tempBase.PlotBaseRegions(w,h,transparancy,1);
             end
             %calculate cost with new Coverings
             tempCenters = obj.Centers;
             tempCenters(Agent) = k;
             Cost = obj.Hmin(NewCoverings,tempCenters);
-% %             %% Plot Calculations
-%                         tempBase = obj;
-%                         tempBase.Coverings = NewCoverings;
-%                         tempBase.Centers(Agent) = k;
-%                         transparancy = 0.25;
-%                         h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
-%                         index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
-%                         w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
-%                         tempBase.PlotBaseRegions(w,h,transparancy,1);
+            %             %% Plot Calculations
+%                 tempBase = obj;
+%                 tempBase.Coverings = NewCoverings;
+%                 tempBase.Centers(Agent) = k;
+%                 transparancy = 0.25;
+%                 h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
+%                 index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
+%                 w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
+%                 tempBase.PlotBaseRegions(w,h,transparancy,1);
         end
         
         function timer = FindTimer(obj,Agent,NewCoverings,c)
@@ -226,7 +223,7 @@ classdef BaseStation
                 oldRegion = obj.PerceivedCoverings{i};
                 removedRegion = oldRegion(~ismember(oldRegion,NewCoverings{i}));
                 if obj.AgentTimers(i) > 0 && ~isempty(removedRegion)
-                    i
+                    i;
                     error
                 end
                 %build Edges for this region

@@ -1,5 +1,4 @@
 clc
-clear all
 close all;
 Ngrid = [];
 list = [];
@@ -121,6 +120,8 @@ locationRecordNorm = locationRecord/sum(locationRecord);
 AvePerDev = [];
 TimeCost= [];
 timeSinceNoChange=0;
+updateCompTime = zeros(time/dt,1);
+RealupdateSteps = 1;
 
 for t = 1:dt:time
     Base = Base.BaseTimeUpdate(dt);
@@ -148,15 +149,26 @@ for t = 1:dt:time
     list = [list AgentToUpdate];
     
     if ~isempty(AgentToUpdate)
+        tic;
         [Base TimeCost(end+1)] = Base.OneToBaseUpdate(AgentToUpdate,width,height,transparancy,BaseFig,dt);
+        updateCompTime(RealupdateSteps) = toc;
+        if updateCompTime(RealupdateSteps)>0.001
+            RealupdateSteps = RealupdateSteps + 1;
+        end
         Agents{AgentToUpdate} = Agents{AgentToUpdate}.BaseUpdate(Base.Coverings{AgentToUpdate},Base.Centers(AgentToUpdate),Base.AgentTimers(AgentToUpdate)+dt,CompleteMap);
         disp(['Hmin' num2str(TimeCost(end))]);
     end
     
     if sum(Base.AgentTimers)==0
         timeSinceNoChange = timeSinceNoChange +1;
+        if timeSinceNoChange >= DeltaComm+1
+            updateCompTime = updateCompTime(updateCompTime~=0);
+            updateCompTime = updateCompTime(1:end-(floor((DeltaComm+1)/dt)));
+            RealupdateSteps = RealupdateSteps - (floor((DeltaComm+1)/dt));
+            break
+        end
     else
-        timeSinceNoChange = 0
+        timeSinceNoChange = 0;
     end
     
     disp(' ')

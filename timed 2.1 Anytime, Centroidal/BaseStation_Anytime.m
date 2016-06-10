@@ -63,7 +63,9 @@ classdef BaseStation_Anytime
             obj.TimeSinceUpdates = zeros(NRegions,1);
             obj.AgentWeights = AgentWeights;
             obj.Coverings = cell(NRegions,1);
-            obj.Centers = randperm(max(obj.Map.PointsIndices),NRegions);
+            
+            s = RandStream('mt19937ar','Seed',29382);
+            obj.Centers = randperm(s,max(obj.Map.PointsIndices),NRegions);
             
             obj.AgentCheckedRegions = zeros(NRegions,1);
             
@@ -102,8 +104,7 @@ classdef BaseStation_Anytime
                 c = obj.Centers(Agent);
                 [NewCoverings lowCost] = obj.FindRegions(Agent,c);
                 if lowCost > obj.HminCost
-                      NewCoverings = obj.Coverings;
-                      lowCost = obj.HminCost;
+                      error('Cost Level Rise')
                 end
                 
                 rng('shuffle'); %Reset RNG so things are random
@@ -120,27 +121,27 @@ classdef BaseStation_Anytime
                 for i = currentChecked+1:length(thisCoveringNotCenter);
                     %%[currentChecked+1:length(thisCoveringNotCenter),1:currentChecked] %Loop through all nodes?
                     %clc
-                    disp([num2str(i),' out of ' ,num2str(length(thisCoveringNotCenter))]);
+                    %disp([num2str(i),' out of ' ,num2str(length(thisCoveringNotCenter))]);
                     [compareCoverings compareCost] = obj.FindRegions(Agent,k(i));
                     %if this k gives us better cost, use k
                     if compareCost<lowCost
                         NewCoverings = compareCoverings;
                         lowCost = compareCost;
                         c = k(i);
-                        disp(['Update with agent found success, resetting all agents currentChecked node.'])
+                        %disp(['Update with agent found success, resetting all agents currentChecked node.'])
                         obj.AgentCheckedRegions = zeros(size(obj.AgentCheckedRegions));
                     end
                     nodesChecked = nodesChecked + 1;
                     if nodesChecked >= numChecks;
-                        disp(['Communication with agent terminated.'])
-                        disp(['Occured after ', num2str(nodesChecked), ' nodes, at node# ', num2str(i)])
+                        %disp(['Communication with agent terminated.'])
+                        %disp(['Occured after ', num2str(nodesChecked), ' nodes, at node# ', num2str(i)])
                         comFail = 1;
                         obj.AgentCheckedRegions(Agent) = i;
                         break;
                     end
                     if i == length(thisCoveringNotCenter);
-                        disp(['Communication with agent finished.'])
-                        disp(['Occured after ', num2str(nodesChecked), ' nodes, at node# ', num2str(i)])
+                        %disp(['Communication with agent finished.'])
+                        %disp(['Occured after ', num2str(nodesChecked), ' nodes, at node# ', num2str(i)])
                         comFail = 0;
                     end
                 end
@@ -157,15 +158,12 @@ classdef BaseStation_Anytime
                 
                 [Centroid, IsCentroidal] = obj.FindCentroid(Agent);
                 if IsCentroidal
-                    disp('Current Agent''s Region is CENTROIDAL!')
+                    %disp('Current Agent''s Region is CENTROIDAL!')
                 else
-                    disp('Current Agent''s Region is not Centroidal,')
-                    disp(['Actual Centroid at: ', num2str(Centroid)])
+                    %disp('Current Agent''s Region is not Centroidal,')
+                    %disp(['Actual Centroid at: ', num2str(Centroid)])
                 end
                 
-                if lowCost > obj.HminCost
-                      error('Impossible Action Occured')
-                end
                 obj.HminCost = lowCost;
             else
                 lowCost = obj.HminCost;
@@ -205,33 +203,21 @@ classdef BaseStation_Anytime
                 %loop through each agent to compare costs
                 costCompare = inf(1,length(adjacent));
                 for i = otherAgents
-                    if obj.DistType(NewCoverings{i},obj.Centers(i)) %if we can use dist Matrix
-                        %disp('check')
-                        thisCenterCost = obj.DistMatrix(obj.Centers(i),adjacent)/obj.AgentWeights(i);
-                    else
-                        %disp('no check')
-                        %build Edges for this region
-                        notThisRegion = ~ismember(obj.Map.PointsIndices,NewCoverings{i});
-                        tempEdges = obj.Map.Edges;
-                        tempEdges(notThisRegion,:) = 0; %remove edges not in subset
-                        tempEdges(:,notThisRegion) = 0;
-                        thisCenterCost = graphshortestpath(sparse(tempEdges),obj.Centers(i),adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
-                    end
-                    costCompare = min(costCompare,thisCenterCost);
-                end
-                %calculate cost for this agent
-                if obj.DistType(NewCoverings{Agent},k) %if we can use dist Matrix
-                    %disp('check')
-                    thisCenterCost = obj.DistMatrix(k,adjacent)/obj.AgentWeights(Agent);
-                else
-                    %disp('no check')
-                    notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
+                    %build Edges for this region
+                    notThisRegion = ~ismember(obj.Map.PointsIndices,NewCoverings{i});
                     tempEdges = obj.Map.Edges;
                     tempEdges(notThisRegion,:) = 0; %remove edges not in subset
                     tempEdges(:,notThisRegion) = 0;
-                    thisCenterCost = graphshortestpath(sparse(tempEdges),k,adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
-                    
+                    thisCenterCost = graphshortestpath(sparse(tempEdges),obj.Centers(i),adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
+                    costCompare = min(costCompare,thisCenterCost);
                 end
+                %calculate cost for this agent
+                notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
+                tempEdges = obj.Map.Edges;
+                tempEdges(notThisRegion,:) = 0; %remove edges not in subset
+                tempEdges(:,notThisRegion) = 0;
+                thisCenterCost = graphshortestpath(sparse(tempEdges),k,adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
+                
                 pPlusnew = adjacent(thisCenterCost<costCompare);
                 %now we have points that we can add. add below
                 NewCoverings{Agent} = sort([NewCoverings{Agent} pPlusnew]);
@@ -239,20 +225,29 @@ classdef BaseStation_Anytime
                 for i = otherAgents
                     NewCoverings{i}(ismember(NewCoverings{i},pPlusnew)) = [];
                 end
+                %             %% Plot Calculations
+%                 tempBase = obj;
+%                 tempBase.Coverings = NewCoverings;
+%                 tempBase.Centers(Agent) = k;
+%                 transparancy = 0.25;
+%                 h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
+%                 index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
+%                 w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
+%                 tempBase.PlotBaseRegions(w,h,transparancy,1);
             end
             %calculate cost with new Coverings
             tempCenters = obj.Centers;
             tempCenters(Agent) = k;
             Cost = obj.Hmin(NewCoverings,tempCenters);
-% %             %% Plot Calculations
-%                         tempBase = obj;
-%                         tempBase.Coverings = NewCoverings;
-%                         tempBase.Centers(Agent) = k;
-%                         transparancy = 0.25;
-%                         h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
-%                         index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
-%                         w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
-%                         tempBase.PlotBaseRegions(w,h,transparancy,1);
+            %             %% Plot Calculations
+%                 tempBase = obj;
+%                 tempBase.Coverings = NewCoverings;
+%                 tempBase.Centers(Agent) = k;
+%                 transparancy = 0.25;
+%                 h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
+%                 index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
+%                 w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
+%                 tempBase.PlotBaseRegions(w,h,transparancy,1);
         end
         
         function timer = FindTimer(obj,Agent,NewCoverings,c)
@@ -339,11 +334,11 @@ classdef BaseStation_Anytime
                             Centroid = CurrentCoverings(i);
                             minCenterCost = currentCenterCost;
                             IsCentroidal = true;
-                            disp(['Current Center is a Centroid: ', num2str(CurrentCoverings(i)), '.'])
+                            %disp(['Current Center is a Centroid: ', num2str(CurrentCoverings(i)), '.'])
                         end
                 end
             end
-            disp(['New centroid found at ', num2str(Centroid), '.'])
+            %disp(['New centroid found at ', num2str(Centroid), '.'])
         end
         
         function cost = Hmin(obj,Coverings,Centers)
