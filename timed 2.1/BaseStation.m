@@ -139,29 +139,27 @@ classdef BaseStation
             initial = true;
             NewCoverings = obj.Coverings;
             pPlusnew = [];
+            RestrictedIndices = []; %points in region with active timer
+            for i = 1:length(obj.AgentTimers);
+                if obj.AgentTimers(i) > 0
+                    RestrictedIndices = [RestrictedIndices obj.Coverings{i}];
+                end
+            end
+            otherAgents = 1:length(NewCoverings);
+            otherAgents(Agent) = []; %index of other agents
             %while loop to add points until no more points to add
             while ~isempty(pPlusnew) || initial
                 initial = false;
-                %find adjacent points
+                %% find adjacent points
                 adjacent = sum(obj.Map.Edges(NewCoverings{Agent},:),1);
                 adjacent = adjacent > 0;
                 adjacent = obj.Map.PointsIndices(adjacent);
                 %remove points already in pPlus or in region with active
                 %timer
                 adjacent(ismember(adjacent,NewCoverings{Agent})) = [];
-                RestrictedIndices = []; %points in region with active timer
-                for i = 1:length(obj.AgentTimers);
-                    if obj.AgentTimers(i) > 0
-                        RestrictedIndices = [RestrictedIndices obj.Coverings{i}];
-                    end
-                end
                 adjacent(ismember(adjacent, RestrictedIndices)) = [];
                 adjacent = sort(adjacent);
-                %now to compare the distance from these adjacent points to
-                %the centers
-                otherAgents = 1:length(NewCoverings);
-                otherAgents(Agent) = [];
-                %loop through each agent to compare costs
+                %% Calculate cost for other agents
                 costCompare = inf(1,length(adjacent));
                 for i = otherAgents
                     %build Edges for this region
@@ -172,13 +170,15 @@ classdef BaseStation
                     thisCenterCost = graphshortestpath(sparse(tempEdges),obj.Centers(i),adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
                     costCompare = min(costCompare,thisCenterCost);
                 end
-                %calculate cost for this agent
-                notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} adjacent]);
-                tempEdges = obj.Map.Edges;
-                tempEdges(notThisRegion,:) = 0; %remove edges not in subset
-                tempEdges(:,notThisRegion) = 0;
-                thisCenterCost = graphshortestpath(sparse(tempEdges),k,adjacent,'Method',obj.distMethod)/obj.AgentWeights(i);
-                
+                %% loop through every adjacent point to find cost for this agent
+                for calcIndex = adjacent %calcIndex = point we are calculating
+                    %calculate cost for this agent
+                    notThisRegion = ~ismember(obj.Map.PointsIndices,[NewCoverings{Agent} calcIndex]);
+                    tempEdges = obj.Map.Edges;
+                    tempEdges(notThisRegion,:) = 0; %remove edges not in subset
+                    tempEdges(:,notThisRegion) = 0;
+                    thisCenterCost(ismember(adjacent,calcIndex)) = graphshortestpath(sparse(tempEdges),k,calcIndex,'Method',obj.distMethod)/obj.AgentWeights(i);
+                end
                 pPlusnew = adjacent(thisCenterCost<costCompare);
                 %now we have points that we can add. add below
                 NewCoverings{Agent} = sort([NewCoverings{Agent} pPlusnew]);
@@ -186,7 +186,8 @@ classdef BaseStation
                 for i = otherAgents
                     NewCoverings{i}(ismember(NewCoverings{i},pPlusnew)) = [];
                 end
-                %             %% Plot Calculations
+                    
+                %% Plot Calculations (growing layers)
 %                 tempBase = obj;
 %                 tempBase.Coverings = NewCoverings;
 %                 tempBase.Centers(Agent) = k;
@@ -200,15 +201,15 @@ classdef BaseStation
             tempCenters = obj.Centers;
             tempCenters(Agent) = k;
             Cost = obj.Hmin(NewCoverings,tempCenters);
-            %             %% Plot Calculations
-%                 tempBase = obj;
-%                 tempBase.Coverings = NewCoverings;
-%                 tempBase.Centers(Agent) = k;
-%                 transparancy = 0.25;
-%                 h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
-%                 index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
-%                 w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
-%                 tempBase.PlotBaseRegions(w,h,transparancy,1);
+            %% Plot Calculations (final covering for this center);
+                tempBase = obj;
+                tempBase.Coverings = NewCoverings;
+                tempBase.Centers(Agent) = k;
+                transparancy = 0.25;
+                h = obj.Map.xy(2,2)-obj.Map.xy(1,2);
+                index = (max(obj.Map.xy(:,2))-min(obj.Map.xy(:,2)))/h+2;
+                w = obj.Map.xy(round(index),1)-obj.Map.xy(1,1);
+                tempBase.PlotBaseRegions(w,h,transparancy,1);
         end
         
         function timer = FindTimer(obj,Agent,NewCoverings,c)
