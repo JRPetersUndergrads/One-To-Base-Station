@@ -175,7 +175,7 @@ function [NewCoverings, Cost] = FindRegions(obj,Agent,k)
                 tempEdges = obj.Map.Edges;
                 tempEdges(notThisRegion,:) = 0; %remove edges not in subset
                 tempEdges(:,notThisRegion) = 0;
-                tempDist = graphshortestpath(sparse(tempEdges),k,'Method',obj.distMethod)/obj.AgentWeights(i);
+                tempDist = graphshortestpath(sparse(tempEdges),k,'Method',obj.distMethod);
                 %% loop through every adjacent point to find cost for this agent
                 for calcIndex = adjacent %calcIndex = point we are calculating
                     %calculate cost for this agent
