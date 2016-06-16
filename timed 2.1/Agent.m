@@ -278,7 +278,11 @@ classdef Agent
             
             agentspos=obj.pos(end,1:2);
             
-            [Gridx,Gridy] = meshgrid(linspace(Lmin(1),Lmax(1),Ngridx),linspace(Lmin(2),Lmax(2),Ngridy));
+            x = linspace(Lmin(1), Lmax(1),Ngridx+1);
+            x = x(1:Ngridx)+0.5*diff(x); %move to center of discrete areas
+            y = linspace(Lmin(2), Lmax(2),Ngridy+1);
+            y = y(1:Ngridy)+0.5*diff(y); %move to center of discrete areas
+            [Gridx,Gridy] = meshgrid(x,y);
             xprel = agentspos(1) - Lmin(1);
             yprel = agentspos(2) - Lmin(2);
             %% see if agent is in its new region
